@@ -41,7 +41,6 @@ def nz(λ):
 λ_vals = np.linspace(0.5, 1.6, 500)
 plt.plot(λ_vals, ny(λ_vals), color='blue',   label='ny')
 plt.plot(λ_vals, nz(λ_vals), color='magenta', label='nz')
-
 plt.xlabel('λ (µm)')
 plt.ylabel('n')
 plt.title('Refractive indices of PPKTP')
@@ -50,6 +49,8 @@ plt.grid(True)
 plt.show()
 
 #Poling period calculations
+print("\n POLING PERIOD")
+
 λpo = 532e-9
 λso = 810e-9
 λio = 1/(1/λpo - 1/λso)
@@ -72,6 +73,8 @@ print("The poling period is " , Λ , " microns")
 
 
 #JSI no cavity
+print("\n JSI NO CAVITY")
+
 Δt = 1e-9
 Δν = (.441/(Δt))/(10**9)
 σν = Δν/(2*np.sqrt(2*np.log(2)))
@@ -94,7 +97,7 @@ print("The central frequency for the idler is ", νio," GHz")
 Δk0 = -nz(λpo*10**6)*2*π*νpo*10**9/c + nz(λso*10**6)*2*π*νso*10**9/c + nz(λio*10**6)*2*π*νio*10**9/c + 2*π/(Λ*10**-6)
 print("Delta k0 is ", Δk0)
 
-h = 1
+h = .1
 dkp = (2*π*nz((c/((νpo+h)*1e9))*1e6)*(νpo+h)*1e9/c
      - 2*π*nz((c/((νpo-h)*1e9))*1e6)*(νpo-h)*1e9/c) / (2*h)
 dks = (2*π*nz((c/((νso+h)*1e9))*1e6)*(νso+h)*1e9/c
@@ -102,23 +105,94 @@ dks = (2*π*nz((c/((νso+h)*1e9))*1e6)*(νso+h)*1e9/c
 dki = (2*π*nz((c/((νio+h)*1e9))*1e6)*(νio+h)*1e9/c
      - 2*π*nz((c/((νio-h)*1e9))*1e6)*(νio-h)*1e9/c) / (2*h)
 
-def Δk1(Δνs, Δνi):
-    return (dkp - dks)*Δνs + (dkp - dki)*Δνi
-
-def Δk(Δνs,Δνi):
-    return Δk0 + Δk1(Δνs, Δνi)
-
-def α(Δνs,Δνi):
-    return np.exp(-(Δνs+Δνi)**2/(4*σν**2))
-
-def ϕ(Δνs,Δνi):
-    return np.sinc((Δk(Δνs,Δνi)*L)/2)
-
-def JSA(Δνs,Δνi):
-    return ϕ(Δνs,Δνi)*α(Δνs,Δνi)
-
-def JSI(Δνs,Δνi):
-    return np.abs(JSA(Δνs, Δνi))**2
+def sinc(x): return np.sin(x)/x
+def Δk1(Δνs, Δνi): return (dkp - dks)*Δνs + (dkp - dki)*Δνi
+def Δk(Δνs,Δνi): return Δk0 + Δk1(Δνs, Δνi)
+def α(Δνs,Δνi): return np.exp(-(Δνs+Δνi)**2/(4*σν**2))
+def ϕ(Δνs,Δνi): return sinc((Δk(Δνs,Δνi)*L)/2)
+def JSA(Δνs,Δνi): return ϕ(Δνs,Δνi)*α(Δνs,Δνi)
+def JSI(Δνs,Δνi): return np.abs(JSA(Δνs, Δνi))**2
 
 
+Δpm = 2.7831/(2*π*(np.abs(dki-dks)*L))
+print("The phase matching bandwidth is ",Δpm, " GHz")
 
+δν = 7
+N = 300
+x = np.linspace(-δν, δν, 300)
+S, I = np.meshgrid(x, x)
+plt.pcolormesh(S, I, α(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("Pump")
+plt.colorbar(label="α")
+plt.show()
+
+plt.pcolormesh(S, I, ϕ(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("Phase Matching")
+plt.colorbar(label="ϕ")
+plt.show()
+
+plt.pcolormesh(S, I, JSI(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("JSI")
+plt.colorbar(label="Intensity")
+plt.show()
+
+
+#Fabry Perot Cavity
+("\n FABRY PEROT CAVITY")
+
+R1 = .999
+R2 = .98
+r1 = np.sqrt(R1)
+r2 = np.sqrt(R2)
+
+αs = 127e-6*100
+def αr(L,R1,R2): return αs + 1/(2*L)*np.log(1/(R1*R2))
+
+def Fnoloss(r1,r2): return π*np.sqrt(r1*r2)/(1-r1*r2)
+def F(L,R1,R2): return π*np.exp(-αr(L,R1,R2)*L/2)/(1-np.exp(-αr(L,R1,R2)*L))
+print("The finesse is ",F(L,R1,R2))
+
+def νf(L): return c*10**-9/(2*L*nz(λso*10**6))
+def sw(L,R1,R2): return νf(L)/(F(L,R1,R2))
+def swnoloss(L,r1,r2): return νf(L)/(Fnoloss(r1,r2))
+print("The spectral width is ",sw(L,R1,R2)*10**3, " MHz")
+print("The spectral width with no loss is ", swnoloss(L,r1,r2)*10**3, " MHz")
+
+Io = 1
+Imax = Io/((1-r1*r2)**2)
+print("The FSR is ",νf(L), " GHz" )
+
+def Intensity(Δν,L,R1,R2): return Imax/(1+(2*F(L,R1,R2)/π)**2*(np.sin(π*Δν/νf(L)))**2)
+def qso(L): return int(np.round(νso/νf(L)))
+def νr(L): return qso(L)*νf(L)
+def δνr(L): return νr(L) - νso
+print("The mode that is closest to the signal frequency is number ", qso(L))
+
+δν2 = 25
+ν_vals = np.linspace(-δν2, δν2, 500)
+plt.plot(ν_vals, Intensity(ν_vals,L,R1,R2), color='blue',   label='Intensity')
+plt.xlabel('ν (GHz)')
+plt.ylabel('Intensity')
+plt.title('Intensity of a Fabry Perot Cavity')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+L_vals = np.linspace(.02e-2, 2e-2, 500)
+plt.plot(L_vals, νf(L_vals) , color='blue',   label='Intensity')
+plt.xlabel('Crystal Length (m)')
+plt.ylabel('FSR (GHz)')
+plt.title('FSR vs. Crystal length')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+
+# α λ π ν δ Δ σ ω
