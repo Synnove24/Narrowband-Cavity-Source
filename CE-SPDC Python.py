@@ -175,7 +175,7 @@ def δνr(L): return νr(L) - νso
 print("The mode that is closest to the signal frequency is number ", qso(L))
 
 δν2 = 25
-ν_vals = np.linspace(-δν2, δν2, 500)
+ν_vals = np.linspace(-δν2, δν2, 10000)
 plt.plot(ν_vals, Intensity(ν_vals,L,R1,R2), color='blue',   label='Intensity')
 plt.xlabel('ν (GHz)')
 plt.ylabel('Intensity')
@@ -184,15 +184,249 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-L_vals = np.linspace(.02e-2, 2e-2, 500)
+L_vals = np.linspace(.02, 2, 500)
 plt.plot(L_vals, νf(L_vals) , color='blue',   label='Intensity')
-plt.xlabel('Crystal Length (m)')
+plt.xlabel('Crystal Length (cm)')
 plt.ylabel('FSR (GHz)')
 plt.title('FSR vs. Crystal length')
 plt.legend()
 plt.grid(True)
 plt.show()
 
+R2_vals = np.linspace(0.9,1,500)
+LL, RR = np.meshgrid(L_vals, R2_vals)
+plt.pcolormesh(LL, RR, np.log10(sw(LL,R1,RR)), shading='auto', cmap='viridis')
+plt.xlabel("Crystal Length (cm)")
+plt.ylabel("R2")
+plt.title("Spectral Width")
+cbar = plt.colorbar()
+cbar.set_label("Spectral Width (GHz)")
+ticks = cbar.get_ticks()
+cbar.set_ticks(ticks)
+cbar.set_ticklabels([f"{10**t:.2e}" for t in ticks])
+plt.show()
 
 
-# α λ π ν δ Δ σ ω
+#JSI With Cavity
+print("\n JSI WITH CAVITY")
+
+def JSACavity(Δνs,Δνi): return ϕ(Δνs,Δνi)* α(Δνs,Δνi)*Intensity(Δνs,L,R1,R2)
+def JSICavity(Δνs,Δνi): return np.abs(JSACavity(Δνs, Δνi))**2
+
+x = np.linspace(-δν2/10, δν2/10, 500)
+S, I = np.meshgrid(x, x)
+plt.pcolormesh(S, I, JSICavity(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("JSI with Cavity")
+plt.colorbar(label="Intensity")
+plt.show()
+
+def JSACavityShifted(Δνs,Δνi): return ϕ(Δνs,Δνi)* α(Δνs,Δνi)*Intensity(Δνs-δνr(L),L,R1,R2)
+def JSICavityShifted(Δνs,Δνi): return np.abs(JSACavityShifted(Δνs, Δνi))**2
+
+x = np.linspace(-δν2, δν2, 1000)
+S, I = np.meshgrid(x, x)
+plt.pcolormesh(S, I, JSICavityShifted(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("JSI with Cavity (shifted)")
+plt.colorbar(label="Intensity")
+plt.show()
+
+
+#ABCD Matrices for Hemispherical Cavity
+print("\n ABCD MATRICES FOR HEMISPHERICAL CAVITY")
+
+RC = 1e-2
+m1 = np.array([[1,0],[0,1]])
+def m2(L): return np.array([[1,L],[0,1]])
+def m3(RC): return np.array([[1,0],[-2/RC,1]])
+nair = 1
+
+def ABCD(RC,L): return m1 @ m2(L) @ m3(RC) @ m2(L)
+def mA(RC,L): return ABCD(RC,L)[0,0]
+def mB(RC,L): return ABCD(RC,L)[0,1]
+def mC(RC,L): return ABCD(RC,L)[1,0]
+def mD(RC,L): return ABCD(RC,L)[1,1]
+
+def stability(RC1,RC2,L): return (1-L/RC1)*(1-L/RC2)
+def hemiStability(RC2,L): return (1-L/RC2)
+print("The stability is ", hemiStability(RC,L))
+
+def RC1(RC,L): return 2*mB(RC,L)/(-(mA(RC,L)-mD(RC,L)))
+def W1(RC,L): return np.sqrt(λso/(nz(λso*10**6)*π))*np.sqrt(np.abs(mB(RC,L))/(np.sqrt(1-((mA(RC,L)+mD(RC,L))/2)**2)))
+def z0(RC,L): return nz(λso*10**6)*π*W1(RC,L)**2/λso
+def RC2(z,RC,L): return z*(1+((z0(RC,L))/z)**2)
+def W2(z,RC,L): return W1(RC,L)*(1+(z/z0(RC,L))**2)**(1/2)
+def Div1(RC,L): return λso/(π*nair*W1(RC,L))
+
+print("The beam divergence is ",Div1(RC,L), " radians")
+print("The radius of curvature of the beam at the firt mirror is ",RC1(RC,L))
+print("The beam radius at the planar mirror is ",W1(RC,L)*10**6, " microns")
+print("The radius of curvature of the beam at the second mirror is ",RC2(L,RC,L)*10**2," cm")
+print("The beam radius at the curved mirror is ",W2(L,RC,L)*10**6," microns")
+
+z_vals = np.linspace(0, L, 500)
+plt.plot(z_vals, W2(z_vals,RC,L)*10**6, color='blue',   label='Intensity')
+plt.xlabel('z (m)')
+plt.ylabel('Beam Radius (microns)')
+plt.title('Beam Radius vs. Z')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+rc_vals = np.linspace(0.50001e-2, 1e-2, 500)
+plt.plot(rc_vals, np.array([W1(rc, L) for rc in rc_vals]) * 1e6, color='blue',   label='Planar')
+plt.plot(rc_vals, np.array([W2(L, rc, L) for rc in rc_vals]) * 1e6, color='magenta', label='Curved')
+plt.xlabel('Radius of Curvature (m)')
+plt.ylabel('Beam radius (microns)')
+plt.title('Beam Radius for Concentric -> Confocal Cavity')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+l_vals = np.linspace(0, 2*L, 500)
+plt.plot(l_vals, np.array([W1(RC, l) for l in l_vals])*1e6, color='blue',   label='Intensity')
+plt.xlabel('Cavity Length (m)')
+plt.ylabel('Beam Radius (microns)')
+plt.title('Beam Radius vs. Cavity Length')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+#Beam Divergence after Cavity
+print("\n BEAM DIVERGENCE AFTER CAVITY")
+
+def m4(RC): return np.array([[1,0],[(nz(λso*10**6)-nair)/(nair*RC),nz(λso*10**6)/nair]])
+def ABCDrefraction(RC): return m4(RC)
+def mAr(RC): return ABCDrefraction(RC)[0,0]
+def mBr(RC): return ABCDrefraction(RC)[0,1]
+def mCr(RC): return ABCDrefraction(RC)[1,0]
+def mDr(RC): return ABCDrefraction(RC)[1,1]
+
+def qp1(RC,L): return L+1j*z0(RC,L)
+def qp2(RC,L): return (mAr(RC)*qp1(RC,L)+mBr(RC))/(mCr(RC)*qp1(RC,L)+mDr(RC))
+def zp2(RC,L): return -np.real(qp2(RC,L))
+def z02(RC,L): return np.imag(qp2(RC,L))
+def W12(RC,L): return np.sqrt(λso*z02(RC,L)/(π*nair))
+def W22(z,RC,L): return W12(RC,L)*(1+(z/z02(RC,L))**2)**(1/2)
+def Div2(RC,L): return λso/(π*nair*W12(RC,L))
+
+print("The beam divergence after exiting the cavity is ",Div2(RC,L)," radians")
+
+z_vals = np.linspace(-L, 6*L, 500)
+plt.plot(z_vals, W2(z_vals,RC,L)*10**6, color='blue',   label='Inside Cavity')
+plt.plot(z_vals, W22(z_vals-L-zp2(RC,L),RC,L)*10**6, color='magenta', label='Outside Cavity')
+plt.xlabel('z(m)')
+plt.ylabel('Beam Radius (microns)')
+plt.title('Beam Radius Through Interface')
+plt.legend()
+plt.grid(True)
+plt.axvline(L, color='red', linestyle='--')
+plt.show()
+
+L_vals = np.linspace(L/4, 2*L, 500)
+plt.plot(L_vals, np.array([Div1(RC,l) for l in L_vals]) , color='blue',   label='Inside Cavity')
+plt.plot(L_vals, np.array([Div2(RC,l) for l in L_vals]), color='magenta', label='Outside Cavity')
+plt.xlabel('Crystal Length')
+plt.ylabel('Beam Divergence (rad)')
+plt.title('Divergence vs. Crystal Length')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+RC_vals = np.linspace(1e-2,2e-2,100)
+L_vals = np.linspace(0.1e-2,1e-2,100)
+LL, RR = np.meshgrid(L_vals, RC_vals)
+plt.pcolormesh(LL, RR, np.log10(np.array([[Div2(rc, l) for l in L_vals] for rc in RC_vals])), shading='auto', cmap='viridis')
+plt.xlabel("Crystal Length (m)")
+plt.ylabel("Radius of Curvature")
+plt.title("Beam Divergence")
+cbar = plt.colorbar()
+cbar.set_label("Beam Divergence (rad)")
+ticks = cbar.get_ticks()
+cbar.set_ticks(ticks)
+cbar.set_ticklabels([f"{10**t:.2e}" for t in ticks])
+plt.show()
+
+#Modes
+print("\n MODES")
+
+def Δζ(RC,L): return np.arctan(L/z0(RC,L))
+def Δζ2(RC,L): return np.arccos(np.sqrt(1-L/RC))
+def νHG(q,z,m,RC,L): return q*νf(L)+(z+m+1)*(Δζ(RC,L)/π)*νf(L)
+def shift(q1,z1,m1,q2,z2,m2,RC,L): return νHG(q2,z2,m2,RC,L)-νHG(q1,z1,m1,RC,L)
+
+print("The frequency shift from TEM00 to TEM01 is ", shift(1,0,0,1,0,1,RC,L)," GHz")
+print("TEM00 resonance: ",νHG(0,0,0,RC,L)," GHz")
+print("TEM10 resonance: ",νHG(0,1,0,RC,L)," GHz")
+print("TEM20 resonance: ",νHG(0,2,0,RC,L)," GHz")
+
+
+ν_vals = np.linspace(-20, 20, 5000)
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,0,0,RC,L),L,R1,R2), color='red',   label='TEM00')
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,1,0,RC,L),L,R1,R2)*0.85, color='orange',   label='TEM10')
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,2,0,RC,L),L,R1,R2)*0.7, color='yellow',   label='TEM20')
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,3,0,RC,L),L,R1,R2)*0.55, color='green',   label='TEM30')
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,4,0,RC,L),L,R1,R2)*0.4, color='blue',   label='TEM40')
+plt.plot(ν_vals, Intensity(ν_vals-νHG(0,5,0,RC,L),L,R1,R2)*0.25, color='purple',   label='TEM50')
+plt.xlabel('ν (GHz)')
+plt.ylabel('Intensity')
+plt.title('Intensity of Higher Order Spatial Modes')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+def TotalIntensity(ν,RC,L,R1,R2): return Intensity(ν-νHG(0,0,0,RC,L),L,R1,R2)+Intensity(ν-νHG(0,1,0,RC,L),L,R1,R2)*.5+Intensity(ν-νHG(0,2,0,RC,L),L,R1,R2)*.5+Intensity(ν-νHG(0,3,0,RC,L),L,R1,R2)*.5+Intensity(ν-νHG(0,4,0,RC,L),L,R1,R2)*.5+Intensity(ν-νHG(0,5,0,RC,L),L,R1,R2)*.5
+
+#JSI with Higher Order Modes
+print("JSI WITH HIGHER ORDER MODES")
+
+def JSAHigherModes(Δνs,Δνi): return ϕ(Δνs,Δνi)*α(Δνs,Δνi)*TotalIntensity(Δνs,RC,L,R1,R2)
+def JSIHigherModes(Δνs,Δνi): return np.abs(JSAHigherModes(Δνs,Δνi))**2
+
+x = np.linspace(-δν2/3, δν2/3, 1000)
+S, I = np.meshgrid(x, x)
+plt.pcolormesh(S, I, JSIHigherModes(S, I), shading='auto', cmap='viridis')
+plt.xlabel("Signal (GHz)")
+plt.ylabel("Idler (GHz)")
+plt.title("JSI with Higher Order Spatial Modes")
+plt.colorbar(label="Intensity")
+plt.show()
+
+#Stability
+print("STABILITY")
+
+def Δnztemp(λ,T): return n1z(λ)*(T-25)+n2z(λ)*(T-25)**2
+def nztemp(λ,T): return np.sqrt(Az+Bz/(1-Cz/(λ**2)))+Δnztemp(λ,T)
+
+aαz = 0.02e-6
+bαz = 6.5e-9
+
+def Lz(T): return 4e-3*(1+aαz*(T-31.85)+(1/2)*bαz*(T-31.85)**2)
+
+T_vals = np.linspace(20, 50, 500)
+plt.plot(T_vals, nztemp(.81,T_vals), color='blue',   label='Temperature')
+plt.xlabel('Temperature (C)')
+plt.ylabel('Index of Refraction')
+plt.title('Index of Refraction vs. Temperature')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+T_vals = np.linspace(30, 60, 500)
+plt.plot(T_vals, Lz(T_vals), color='blue',   label='Temperature')
+plt.xlabel('Temperature (C)')
+plt.ylabel('Length (m)')
+plt.title('Length vs. Temperature')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+
+
+
+# α λ π ν δ Δ σ ω ϕ ξ ζ
