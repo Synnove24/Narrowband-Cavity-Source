@@ -75,8 +75,9 @@ print("The poling period is " , Λ , " microns")
 #JSI no cavity
 print("\n JSI NO CAVITY")
 
-Δt = 1e-9
-Δν = (.441/(Δt))/(10**9)
+#Δt = 1e-9
+#Δν = (.441/(Δt))/(10**9)
+Δν = 1
 σν = Δν/(2*np.sqrt(2*np.log(2)))
 
 def λs(ν):
@@ -210,16 +211,18 @@ plt.show()
 #JSI With Cavity
 print("\n JSI WITH CAVITY")
 
+
 def JSACavity(Δνs,Δνi): return ϕ(Δνs,Δνi)* α(Δνs,Δνi)*Intensity(Δνs,L,R1,R2)
 def JSICavity(Δνs,Δνi): return np.abs(JSACavity(Δνs, Δνi))**2
 
-x = np.linspace(-δν2/10, δν2/10, 500)
+x = np.linspace(-δν2, δν2, 1000)
 S, I = np.meshgrid(x, x)
-plt.pcolormesh(S, I, JSICavity(S, I), shading='auto', cmap='viridis')
-plt.xlabel("Signal (GHz)")
-plt.ylabel("Idler (GHz)")
-plt.title("JSI with Cavity")
-plt.colorbar(label="Intensity")
+plt.pcolormesh(S, I, JSICavity(S, I), shading='auto', cmap='plasma')
+plt.xlabel("Signal (GHz)", fontsize=18)
+plt.ylabel("Idler (GHz)", fontsize=18)
+plt.title("Joint Spectral Intensity", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
 plt.show()
 
 def JSACavityShifted(Δνs,Δνi): return ϕ(Δνs,Δνi)* α(Δνs,Δνi)*Intensity(Δνs-δνr(L),L,R1,R2)
@@ -425,8 +428,81 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
+#Off-axis Scanning Fabry Perot Etalon
+print("OFF-AXIS SCANNING FABRY PEROT ETALON")
 
+def νf_free_space(L): return c*10**-9/(2*L)
+def qso_free_space(L): return int(np.round(νso/νf_free_space(L)))
+def ν_off_axis(q,θ,L): return q*νf_free_space(L)/np.cos(θ)
+def λ_off_axis(q,θ,L): return c/ν_off_axis(q,θ,L)
 
+print("qso_free_space(0.05) =", qso_free_space(0.05))
 
+θ_vals = np.linspace(0,0.1,1000)
+plt.plot(θ_vals, λ_off_axis(qso_free_space(0.05),θ_vals,0.05), color='blue',   label='wavelength')
+plt.xlabel('Angle into the Etalon')
+plt.ylabel('λ (nm)')
+plt.title('Resonance Wavelength vs. Angle into a Fabry Perot')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+θ_vals = np.linspace(0,0.01,1000)
+plt.plot(θ_vals, ν_off_axis(qso_free_space(0.05),θ_vals,0.05)*1e-3, color='blue',   label='frequency')
+plt.xlabel('Angle into the Etalon')
+plt.ylabel('ν (THz)')
+plt.title('Resonance Frequency vs. Angle into a Fabry Perot')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+Δν_max = .01 #GHz
+θ_max = np.arccos(qso_free_space(0.05)*νf_free_space(0.05)/(Δν_max+qso_free_space(0.05)*νf_free_space(0.05)))
+print("In order for the frequency shift to stay within ", Δν_max*1e3, " MHz, the angle can't deviate by more than ",θ_max," radians")
+
+# Joint Temporal Intensity
+print("JOINT TEMPORAL INTENSITY")
+
+# JSA(Δνs,Δνi)
+x = np.linspace(-δν2, δν2, 300)
+S, I = np.meshgrid(x, x)
+JSA = JSA(S, I)
+
+#ifftshift -> center to corner
+#fftshift -> corner to center
+
+JTA = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSA)))
+JTI = np.abs(JTA)**2
+
+t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
+
+Ts, Ti = np.meshgrid(t, t)
+
+plt.pcolormesh(Ts, Ti, JTI, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler time (ns)", fontsize=18)
+plt.title("Joint Temporal Intensity (no cavity)", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
+
+x = np.linspace(-δν2, δν2, 300)
+S, I = np.meshgrid(x, x)
+JSACavity = JSACavity(S, I)
+
+JTACavity = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSACavity)))
+JTICavity = np.abs(JTACavity)**2
+
+t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
+
+Ts, Ti = np.meshgrid(t, t)
+
+plt.pcolormesh(Ts, Ti, JTICavity, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler time (ns)", fontsize=18)
+plt.title("Joint Temporal Intensity", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
 
 # α λ π ν δ Δ σ ω ϕ ξ ζ
