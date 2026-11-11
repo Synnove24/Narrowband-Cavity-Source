@@ -463,19 +463,12 @@ print("In order for the frequency shift to stay within ", Δν_max*1e3, " MHz, t
 # Joint Temporal Intensity
 print("JOINT TEMPORAL INTENSITY")
 
-# JSA(Δνs,Δνi)
 x = np.linspace(-δν2, δν2, 300)
 S, I = np.meshgrid(x, x)
-JSA = JSA(S, I)
-
-#ifftshift -> center to corner
-#fftshift -> corner to center
-
-JTA = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSA)))
+JSA_array = JSA(S, I)
+JTA = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSA_array)))
 JTI = np.abs(JTA)**2
-
 t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
-
 Ts, Ti = np.meshgrid(t, t)
 
 plt.pcolormesh(Ts, Ti, JTI, shading='auto', cmap='plasma')
@@ -486,15 +479,13 @@ cbar = plt.colorbar()
 cbar.ax.set_ylabel("Intensity", fontsize=18)
 plt.show()
 
+
 x = np.linspace(-δν2, δν2, 300)
 S, I = np.meshgrid(x, x)
-JSACavity = JSACavity(S, I)
-
-JTACavity = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSACavity)))
+JSACavity_array = JSACavity(S, I)
+JTACavity = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSACavity_array)))
 JTICavity = np.abs(JTACavity)**2
-
 t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
-
 Ts, Ti = np.meshgrid(t, t)
 
 plt.pcolormesh(Ts, Ti, JTICavity, shading='auto', cmap='plasma')
@@ -504,5 +495,79 @@ plt.title("Joint Temporal Intensity", fontsize=24)
 cbar = plt.colorbar()
 cbar.ax.set_ylabel("Intensity", fontsize=18)
 plt.show()
+
+
+
+x = np.linspace(-δν2/2, δν2/2, 300)
+S, I = np.meshgrid(x, x)
+JSACavity1Pancake_array = JSACavity(S, I)
+JTACavity1Pancake = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(JSACavity1Pancake_array)))
+JTICavity1Pancake = np.abs(JTACavity1Pancake)**2
+t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
+Ts, Ti = np.meshgrid(t, t)
+
+plt.pcolormesh(Ts, Ti, JTICavity1Pancake, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler time (ns)", fontsize=18)
+plt.title("Joint Temporal Intensity with 1 Pancake", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
+
+
+#Joint temporal spectral intensity
+print("JOINT TEMPORAL-SPECTRAL INTENSITY")
+
+x = np.linspace(-δν2, δν2, 1000)
+S, I = np.meshgrid(x, x)
+JSA2_array = JSA(S, I)
+JTSA = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(JSA2_array, axes=1), axis=1), axes=1)
+JTSI = np.abs(JTSA)**2
+t = np.fft.fftshift(np.fft.fftfreq(1000, d=x[1] - x[0]))
+Ts, Ii = np.meshgrid(t, x)
+
+plt.pcolormesh(Ts, Ii, JTSI, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler (GHz)", fontsize=18)
+plt.title("Joint Temporal-Spectral Intensity (no cavity)", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
+
+# With cavity
+x = np.linspace(-δν2, δν2, 1000)
+S, I = np.meshgrid(x, x)
+JSACavity2_array = JSACavity(S, I)
+JTSACavity = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(JSACavity2_array, axes=1), axis=1), axes=1)
+JTSICavity = np.abs(JTSACavity)**2
+t = np.fft.fftshift(np.fft.fftfreq(1000, d=x[1] - x[0]))
+Ts, Ii = np.meshgrid(t, x)
+
+plt.pcolormesh(Ts, Ii, JTSICavity, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler (GHz)", fontsize=18)
+plt.title("Joint Temporal-Spectral Intensity", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
+
+
+x = np.linspace(-δν2/2, δν2/2, 300)
+S, I = np.meshgrid(x, x)
+JSACavity1Pancake2_array = JSACavity(S, I)
+JTSACavity1Pancake = np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(JSACavity1Pancake2_array, axes=1), axis=1), axes=1)
+JTSICavity1Pancake = np.abs(JTSACavity1Pancake)**2
+t = np.fft.fftshift(np.fft.fftfreq(300, d=x[1] - x[0]))
+Ts, Ii = np.meshgrid(t, x)
+
+plt.pcolormesh(Ts, Ii, JTSICavity1Pancake, shading='auto', cmap='plasma')
+plt.xlabel("Signal time (ns)", fontsize=18)
+plt.ylabel("Idler (GHz)", fontsize=18)
+plt.title("Joint Temporal-Spectral Intensity with 1 Pancake", fontsize=24)
+cbar = plt.colorbar()
+cbar.ax.set_ylabel("Intensity", fontsize=18)
+plt.show()
+
+
 
 # α λ π ν δ Δ σ ω ϕ ξ ζ
